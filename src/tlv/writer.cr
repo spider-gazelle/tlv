@@ -11,59 +11,34 @@ module TLV
     end
 
     def put(tag : Tag, value : Value)
-      if value.nil?
+      case value
+      when .nil?
         put_null(tag)
-      end
-
-      if value.is_a?(Bool)
+      when .is_a?(Bool)
         put_bool(tag, value.as(Bool))
-      end
-
-      if value.is_a?(UInt8)
+      when .is_a?(UInt8)
         put_unsigned_int(tag, value.as(UInt8))
-      end
-
-      if value.is_a?(UInt16)
+      when .is_a?(UInt16)
         put_unsigned_int(tag, value.as(UInt16))
-      end
-
-      if value.is_a?(UInt32)
+      when .is_a?(UInt32)
         put_unsigned_int(tag, value.as(UInt32))
-      end
-
-      if value.is_a?(UInt64)
+      when .is_a?(UInt64)
         put_unsigned_int(tag, value.as(UInt64))
-      end
-
-      if value.is_a?(Int)
+      when .is_a?(Int)
         put_signed_int(tag, value.as(Int))
-      end
-
-      if value.is_a?(Float32)
+      when .is_a?(Float32)
         put_float(tag, value.as(Float32))
-      end
-
-      if value.is_a?(Float64)
+      when .is_a?(Float64)
         put_double(tag, value.as(Float64))
-      end
-
-      if value.is_a?(String)
+      when .is_a?(String)
         put_string(tag, value.as(String))
-      end
-
-      if value.is_a?(Slice(UInt8))
+      when .is_a?(Slice(UInt8))
         put_slice(tag, value.as(Slice(UInt8)))
-      end
-
-      if value.is_a?(Hash(Tag, Value))
+      when .is_a?(Hash(Tag, Value))
         put_hash(tag, value.as(Hash(Tag, Value)))
-      end
-
-      if value.is_a?(Array(Value))
+      when .is_a?(Array(Value))
         put_array(tag, value.as(Array(Value)))
-      end
-
-      if value.is_a?(Enum)
+      when .is_a?(Enum)
         put(tag, value.value)
       end
     end
