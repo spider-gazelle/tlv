@@ -34,13 +34,15 @@ module TLV
 
       {% begin %}
         {% properties = {} of Nil => Nil %}
+        {% index = 0 %}
 
         {% for ivar in @type.instance_vars %}
           {% ann = ivar.annotation(TLV::Field) %}
           {% unless ann && (ann[:ignore] || ann[:ignore_deserialize]) %}
+            {% tag_value = (ann && ann[:tag]) || index %}
             {%
               properties[ivar.id] = {
-                tag:         ((ann && ann[:tag]) || @types.instance_vars.index(ivar)),
+                tag:         tag_value,
                 has_default: ivar.has_default_value?,
                 default:     ivar.default_value,
                 nilable:     ivar.type.nilable?,
@@ -48,6 +50,7 @@ module TLV
                 presence:    ann && ann[:presence],
               }
             %}
+            {% index = index + 1 %}
           {% end %}
         {% end %}
 
@@ -152,16 +155,19 @@ module TLV
     def to_h : Hash(TLV::Tag, TLV::Value)
       {% begin %}
         {% properties = {} of Nil => Nil %}
+        {% index = 0 %}
         {% for ivar in @type.instance_vars %}
           {% ann = ivar.annotation(TLV::Field) %}
           {% unless ann && (ann[:ignore] || ann[:ignore_serialize] == true) %}
+            {% tag_value = (ann && ann[:tag]) || index %}
             {%
               properties[ivar.id] = {
-                tag:              ((ann && ann[:tag]) || @types.instance_vars.index(ivar)),
+                tag:              tag_value,
                 type:             ivar.type,
                 ignore_serialize: ann && ann[:ignore_serialize],
               }
             %}
+            {% index = index + 1 %}
           {% end %}
         {% end %}
 
