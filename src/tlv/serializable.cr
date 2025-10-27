@@ -122,6 +122,39 @@ module TLV
             {% else %}
               {% ancestors = value[:type].ancestors %}
 
+              # Handle Array(SomeSerializableType) where SomeSerializableType includes TLV::Serializable
+              {% type_name = value[:type].stringify %}
+              {% if type_name.includes?("Array(") %}
+                # It's an array type - extract element type
+                {% if value[:type].nilable? %}
+                  # Nilable array - find the non-nil type
+                  {% actual_array_type = value[:type].union_types.find { |t| t != Nil } %}
+                {% else %}
+                  # Non-nilable array
+                  {% actual_array_type = value[:type] %}
+                {% end %}
+
+                {% if actual_array_type %}
+                  # Try to resolve the array type and get its type arguments
+                  {% resolved_array = actual_array_type.resolve %}
+                  {% if resolved_array && resolved_array.type_vars && resolved_array.type_vars.size > 0 %}
+                    {% element_type = resolved_array.type_vars[0] %}
+                    {% element_ancestors = element_type.ancestors %}
+
+                    {% if element_ancestors.includes?(TLV::Serializable) %}
+                      # Deserialize array of TLV::Serializable elements
+                      array_value = %var{name}.as(Array(TLV::Value))
+                      @{{name}} = array_value.map do |elem|
+                        io = IO::Memory.new
+                        writer = TLV::Writer.new(io)
+                        writer.put(nil, elem)
+                        {{element_type}}.new(io.rewind.to_slice)
+                      end
+                    {% end %}
+                  {% end %}
+                {% end %}
+              {% end %}
+
               {% if ancestors.includes?(Enum) %}
                 if %var{name}.responds_to?(:to_i)
                   @{{name}} = {{value[:type]}}.from_value(%var{name}.to_i)
@@ -187,7 +220,44 @@ module TLV
           {% elsif ancestors.includes?(Enum) %}
             input[tag] = @{{name}}.value
           {% else %}
-            input[tag] = @{{name}}
+            # Handle Array(SomeSerializableType) serialization
+            {% type_name = value[:type].stringify %}
+            {% if type_name.includes?("Array(") %}
+              # It's an array type - extract element type
+              {% if value[:type].nilable? %}
+                # Nilable array - find the non-nil type
+                {% actual_array_type = value[:type].union_types.find { |t| t != Nil } %}
+              {% else %}
+                #Non-nilable array
+                {% actual_array_type = value[:type] %}
+              {% end %}
+
+              {% if actual_array_type %}
+                # Try to resolve the array type and get its type arguments
+                {% resolved_array = actual_array_type.resolve %}
+                {% if resolved_array && resolved_array.type_vars && resolved_array.type_vars.size > 0 %}
+                  {% element_type = resolved_array.type_vars[0] %}
+                  {% element_ancestors = element_type.ancestors %}
+
+                  {% if element_ancestors.includes?(TLV::Serializable) %}
+                    # Serialize array of TLV::Serializable elements
+                    if array = @{{name}}
+                      input[tag] = array.map(&.to_h).map { |h| h.as(TLV::Value) }
+                    end
+                  {% else %}
+                    # Regular array (not TLV::Serializable)
+                    if val = @{{name}}
+                      input[tag] = val
+                    end
+                  {% end %}
+                {% end %}
+              {% end %}
+            {% else %}
+              # Not an array at all
+              if val = @{{name}}
+                input[tag] = val
+              end
+            {% end %}
           {% end %}
         {% end %}
 
