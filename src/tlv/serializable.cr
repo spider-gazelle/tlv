@@ -115,50 +115,102 @@ module TLV
               @{{name}} = %var{name}.as(Bool)
             {% elsif value[:nilable] && value[:type].union_types.includes?(Bool) %}
               # Handle Bool? (nilable Bool)
-              @{{name}} = %var{name}.as(Bool)
+              if %var{name}.nil?
+                @{{name}} = nil
+              else
+                @{{name}} = %var{name}.as(Bool)
+              end
 
             # Handle nullable integer types
             {% elsif value[:nilable] && value[:type].union_types.includes?(Int8) %}
-              raise Exception.new("Can not cast to Int8?") unless %var{name}.responds_to?(:to_i)
-              @{{name}} = %var{name}.to_i8
+              if %var{name}.nil?
+                @{{name}} = nil
+              else
+                raise Exception.new("Can not cast to Int8?") unless %var{name}.responds_to?(:to_i)
+                @{{name}} = %var{name}.to_i8
+              end
             {% elsif value[:nilable] && value[:type].union_types.includes?(Int16) %}
-              raise Exception.new("Can not cast to Int16?") unless %var{name}.responds_to?(:to_i)
-              @{{name}} = %var{name}.to_i16
+              if %var{name}.nil?
+                @{{name}} = nil
+              else
+                raise Exception.new("Can not cast to Int16?") unless %var{name}.responds_to?(:to_i)
+                @{{name}} = %var{name}.to_i16
+              end
             {% elsif value[:nilable] && value[:type].union_types.includes?(Int32) %}
-              raise Exception.new("Can not cast to Int32?") unless %var{name}.responds_to?(:to_i)
-              @{{name}} = %var{name}.to_i32
+              if %var{name}.nil?
+                @{{name}} = nil
+              else
+                raise Exception.new("Can not cast to Int32?") unless %var{name}.responds_to?(:to_i)
+                @{{name}} = %var{name}.to_i32
+              end
             {% elsif value[:nilable] && value[:type].union_types.includes?(Int64) %}
-              raise Exception.new("Can not cast to Int64?") unless %var{name}.responds_to?(:to_i)
-              @{{name}} = %var{name}.to_i64
+              if %var{name}.nil?
+                @{{name}} = nil
+              else
+                raise Exception.new("Can not cast to Int64?") unless %var{name}.responds_to?(:to_i)
+                @{{name}} = %var{name}.to_i64
+              end
             {% elsif value[:nilable] && value[:type].union_types.includes?(UInt8) %}
-              raise Exception.new("Can not cast to UInt8?") unless %var{name}.responds_to?(:to_i)
-              @{{name}} = %var{name}.to_u8
+              if %var{name}.nil?
+                @{{name}} = nil
+              else
+                raise Exception.new("Can not cast to UInt8?") unless %var{name}.responds_to?(:to_i)
+                @{{name}} = %var{name}.to_u8
+              end
             {% elsif value[:nilable] && value[:type].union_types.includes?(UInt16) %}
-              raise Exception.new("Can not cast to UInt16?") unless %var{name}.responds_to?(:to_i)
-              @{{name}} = %var{name}.to_u16
+              if %var{name}.nil?
+                @{{name}} = nil
+              else
+                raise Exception.new("Can not cast to UInt16?") unless %var{name}.responds_to?(:to_i)
+                @{{name}} = %var{name}.to_u16
+              end
             {% elsif value[:nilable] && value[:type].union_types.includes?(UInt32) %}
-              raise Exception.new("Can not cast to UInt32?") unless %var{name}.responds_to?(:to_i)
-              @{{name}} = %var{name}.to_u32
+              if %var{name}.nil?
+                @{{name}} = nil
+              else
+                raise Exception.new("Can not cast to UInt32?") unless %var{name}.responds_to?(:to_i)
+                @{{name}} = %var{name}.to_u32
+              end
             {% elsif value[:nilable] && value[:type].union_types.includes?(UInt64) %}
-              raise Exception.new("Can not cast to UInt64?") unless %var{name}.responds_to?(:to_i)
-              @{{name}} = %var{name}.to_u64
+              if %var{name}.nil?
+                @{{name}} = nil
+              else
+                raise Exception.new("Can not cast to UInt64?") unless %var{name}.responds_to?(:to_i)
+                @{{name}} = %var{name}.to_u64
+              end
 
             # Handle nullable float types
             {% elsif value[:nilable] && value[:type].union_types.includes?(Float32) %}
-              raise Exception.new("Can not cast to Float32?") unless %var{name}.responds_to?(:to_f32)
-              @{{name}} = %var{name}.to_f32
+              if %var{name}.nil?
+                @{{name}} = nil
+              else
+                raise Exception.new("Can not cast to Float32?") unless %var{name}.responds_to?(:to_f32)
+                @{{name}} = %var{name}.to_f32
+              end
             {% elsif value[:nilable] && value[:type].union_types.includes?(Float64) %}
-              raise Exception.new("Can not cast to Float64?") unless %var{name}.responds_to?(:to_f)
-              @{{name}} = %var{name}.to_f
+              if %var{name}.nil?
+                @{{name}} = nil
+              else
+                raise Exception.new("Can not cast to Float64?") unless %var{name}.responds_to?(:to_f)
+                @{{name}} = %var{name}.to_f
+              end
 
             # Handle nullable string type
             {% elsif value[:nilable] && value[:type].union_types.includes?(String) %}
-              raise Exception.new("Can not cast to String?") unless %var{name}.responds_to?(:to_s)
-              @{{name}} = %var{name}.to_s
+              if %var{name}.nil?
+                @{{name}} = nil
+              else
+                raise Exception.new("Can not cast to String?") unless %var{name}.responds_to?(:to_s)
+                @{{name}} = %var{name}.to_s
+              end
 
             # Handle nullable Slice(UInt8)
             {% elsif value[:nilable] && value[:type].union_types.any? { |t| t == Slice(UInt8) } %}
-              @{{name}} = %var{name}.as(Slice(UInt8))
+              if %var{name}.nil?
+                @{{name}} = nil
+              else
+                @{{name}} = %var{name}.as(Slice(UInt8))
+              end
 
             {% elsif value[:type] == Slice(UInt8) %}
               @{{name}} = %var{name}.as(Slice(UInt8))
@@ -210,17 +262,23 @@ module TLV
 
                   {% if non_nil_ancestors.includes?(Enum) %}
                     # Nullable enum
-                    if %var{name}.responds_to?(:to_i)
+                    if %var{name}.nil?
+                      @{{name}} = nil
+                    elsif %var{name}.responds_to?(:to_i)
                       @{{name}} = {{non_nil_type}}.from_value(%var{name}.to_i)
                     else
                       raise Exception.new("Unable to cast enum #{{{value[:tag]}}} from value #{%var{name}}")
                     end
                   {% elsif non_nil_ancestors.includes?(TLV::Serializable) %}
                     # Nullable TLV::Serializable
-                    io = IO::Memory.new
-                    writer = TLV::Writer.new(io)
-                    writer.put(nil, %var{name}.as(TLV::Value))
-                    @{{name}} = {{non_nil_type}}.new(io.rewind.to_slice)
+                    if %var{name}.nil?
+                      @{{name}} = nil
+                    else
+                      io = IO::Memory.new
+                      writer = TLV::Writer.new(io)
+                      writer.put(nil, %var{name}.as(TLV::Value))
+                      @{{name}} = {{non_nil_type}}.new(io.rewind.to_slice)
+                    end
                   {% end %}
                 {% end %}
               {% end %}
