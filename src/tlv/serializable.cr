@@ -113,6 +113,53 @@ module TLV
               @{{name}} = %var{name}.to_f
             {% elsif value[:type] == Bool %}
               @{{name}} = %var{name}.as(Bool)
+            {% elsif value[:nilable] && value[:type].union_types.includes?(Bool) %}
+              # Handle Bool? (nilable Bool)
+              @{{name}} = %var{name}.as(Bool)
+
+            # Handle nullable integer types
+            {% elsif value[:nilable] && value[:type].union_types.includes?(Int8) %}
+              raise Exception.new("Can not cast to Int8?") unless %var{name}.responds_to?(:to_i)
+              @{{name}} = %var{name}.to_i8
+            {% elsif value[:nilable] && value[:type].union_types.includes?(Int16) %}
+              raise Exception.new("Can not cast to Int16?") unless %var{name}.responds_to?(:to_i)
+              @{{name}} = %var{name}.to_i16
+            {% elsif value[:nilable] && value[:type].union_types.includes?(Int32) %}
+              raise Exception.new("Can not cast to Int32?") unless %var{name}.responds_to?(:to_i)
+              @{{name}} = %var{name}.to_i32
+            {% elsif value[:nilable] && value[:type].union_types.includes?(Int64) %}
+              raise Exception.new("Can not cast to Int64?") unless %var{name}.responds_to?(:to_i)
+              @{{name}} = %var{name}.to_i64
+            {% elsif value[:nilable] && value[:type].union_types.includes?(UInt8) %}
+              raise Exception.new("Can not cast to UInt8?") unless %var{name}.responds_to?(:to_i)
+              @{{name}} = %var{name}.to_u8
+            {% elsif value[:nilable] && value[:type].union_types.includes?(UInt16) %}
+              raise Exception.new("Can not cast to UInt16?") unless %var{name}.responds_to?(:to_i)
+              @{{name}} = %var{name}.to_u16
+            {% elsif value[:nilable] && value[:type].union_types.includes?(UInt32) %}
+              raise Exception.new("Can not cast to UInt32?") unless %var{name}.responds_to?(:to_i)
+              @{{name}} = %var{name}.to_u32
+            {% elsif value[:nilable] && value[:type].union_types.includes?(UInt64) %}
+              raise Exception.new("Can not cast to UInt64?") unless %var{name}.responds_to?(:to_i)
+              @{{name}} = %var{name}.to_u64
+
+            # Handle nullable float types
+            {% elsif value[:nilable] && value[:type].union_types.includes?(Float32) %}
+              raise Exception.new("Can not cast to Float32?") unless %var{name}.responds_to?(:to_f32)
+              @{{name}} = %var{name}.to_f32
+            {% elsif value[:nilable] && value[:type].union_types.includes?(Float64) %}
+              raise Exception.new("Can not cast to Float64?") unless %var{name}.responds_to?(:to_f)
+              @{{name}} = %var{name}.to_f
+
+            # Handle nullable string type
+            {% elsif value[:nilable] && value[:type].union_types.includes?(String) %}
+              raise Exception.new("Can not cast to String?") unless %var{name}.responds_to?(:to_s)
+              @{{name}} = %var{name}.to_s
+
+            # Handle nullable Slice(UInt8)
+            {% elsif value[:nilable] && value[:type].union_types.any? { |t| t == Slice(UInt8) } %}
+              @{{name}} = %var{name}.as(Slice(UInt8))
+
             {% elsif value[:type] == Slice(UInt8) %}
               @{{name}} = %var{name}.as(Slice(UInt8))
             {% elsif value[:type] == Hash(TLV::Tag, TLV::Value) %}
@@ -155,6 +202,30 @@ module TLV
                 {% end %}
               {% end %}
 
+              # Handle nullable enum types
+              {% if value[:nilable] %}
+                {% non_nil_type = value[:type].union_types.find { |t| t != Nil } %}
+                {% if non_nil_type %}
+                  {% non_nil_ancestors = non_nil_type.ancestors %}
+
+                  {% if non_nil_ancestors.includes?(Enum) %}
+                    # Nullable enum
+                    if %var{name}.responds_to?(:to_i)
+                      @{{name}} = {{non_nil_type}}.from_value(%var{name}.to_i)
+                    else
+                      raise Exception.new("Unable to cast enum #{{{value[:tag]}}} from value #{%var{name}}")
+                    end
+                  {% elsif non_nil_ancestors.includes?(TLV::Serializable) %}
+                    # Nullable TLV::Serializable
+                    io = IO::Memory.new
+                    writer = TLV::Writer.new(io)
+                    writer.put(nil, %var{name}.as(TLV::Value))
+                    @{{name}} = {{non_nil_type}}.new(io.rewind.to_slice)
+                  {% end %}
+                {% end %}
+              {% end %}
+
+              # Handle non-nullable enum and serializable types
               {% if ancestors.includes?(Enum) %}
                 if %var{name}.responds_to?(:to_i)
                   @{{name}} = {{value[:type]}}.from_value(%var{name}.to_i)
@@ -215,7 +286,36 @@ module TLV
             tag = {{value[:tag]}}
           {% end %}
 
-          {% if ancestors.includes?(TLV::Serializable) %}
+          # Handle nullable enum and TLV::Serializable types (but not arrays)
+          {% type_name = value[:type].stringify %}
+          {% if value[:type].nilable? && !type_name.includes?("Array(") %}
+            {% non_nil_type = value[:type].union_types.find { |t| t != Nil } %}
+            {% if non_nil_type %}
+              {% non_nil_ancestors = non_nil_type.ancestors %}
+              {% if non_nil_ancestors.includes?(TLV::Serializable) %}
+                # Nullable TLV::Serializable
+                if val = @{{name}}
+                  input[tag] = val.to_h
+                end
+              {% elsif non_nil_ancestors.includes?(Enum) %}
+                # Nullable Enum
+                if val = @{{name}}
+                  input[tag] = val.value
+                end
+              {% elsif non_nil_type == Bool %}
+                # Nullable Bool - special case because false is falsy
+                val = @{{name}}
+                unless val.nil?
+                  input[tag] = val
+                end
+              {% else %}
+                # Other nullable primitive (already handled by basic if val = @{{name}})
+                if val = @{{name}}
+                  input[tag] = val
+                end
+              {% end %}
+            {% end %}
+          {% elsif ancestors.includes?(TLV::Serializable) %}
             input[tag] = @{{name}}.to_h
           {% elsif ancestors.includes?(Enum) %}
             input[tag] = @{{name}}.value
