@@ -113,6 +113,17 @@ module TLV
               @{{name}} = %var{name}.to_f
             {% elsif value[:type] == Bool %}
               @{{name}} = %var{name}.as(Bool)
+
+            # Handle TLV::Value and TLV::Value? (detected by large union size)
+            # TLV::Value is a union of 16+ types, so if we see a field with that many union types,
+            # it's likely TLV::Value or TLV::Value?, and we should just pass it through
+            {% elsif value[:nilable] && value[:type].union_types.size > 10 %}
+              # This is likely TLV::Value? - just pass through without casting
+              @{{name}} = %var{name}
+            {% elsif value[:type].union_types.size > 10 %}
+              # This is likely TLV::Value - just pass through without casting
+              @{{name}} = %var{name}.as(TLV::Value)
+
             {% elsif value[:nilable] && value[:type].union_types.includes?(Bool) %}
               # Handle Bool? (nilable Bool)
               if %var{name}.nil?

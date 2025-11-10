@@ -223,7 +223,7 @@ module TLV
             end
           elsif decoding.keys.includes?("tag")
             if output.is_a?(Hash(Tag, Value))
-              tag = decoding["tag"] ? decoding["tag"].to_s : "Any"
+              tag = decoding["tag"] ? decoding["tag"].as(Tag) : "Any"
               output[tag] = decoding["value"]
             else
               output.push(decoding["value"])
