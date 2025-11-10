@@ -147,26 +147,62 @@ module TLV
       end
     end
 
-    def put_unsigned_int(tag : Tag, value : UInt8 | UInt16 | UInt32 | UInt64)
+    def put_unsigned_int(tag : Tag, value : UInt8 | UInt16 | UInt32 | UInt64, force_size : Int32? = nil)
       # Write a value as a TLV unsigned integer with the specified TLV tag.
+      # force_size: Optional size in bytes (1, 2, 4, or 8) to force specific encoding width.
+      #             This is useful when the protocol requires a specific size regardless of value.
       if value < 0
         raise "Integer value out of range"
       end
 
-      if value <= Constants::IntegerSize::UINT8_MAX
+      # Determine size to use (forced or automatic)
+      size = if fs = force_size
+               # Validate forced size
+               unless [1, 2, 4, 8].includes?(fs)
+                 raise "force_size must be 1, 2, 4, or 8 bytes"
+               end
+               # Ensure value fits in forced size
+               case fs
+               when 1
+                 if value > Constants::IntegerSize::UINT8_MAX
+                   raise "Value #{value} too large for forced size of 1 byte"
+                 end
+               when 2
+                 if value > Constants::IntegerSize::UINT16_MAX
+                   raise "Value #{value} too large for forced size of 2 bytes"
+                 end
+               when 4
+                 if value > Constants::IntegerSize::UINT32_MAX
+                   raise "Value #{value} too large for forced size of 4 bytes"
+                 end
+               end
+               fs
+             elsif value <= Constants::IntegerSize::UINT8_MAX
+               1
+             elsif value <= Constants::IntegerSize::UINT16_MAX
+               2
+             elsif value <= Constants::IntegerSize::UINT32_MAX
+               4
+             elsif value <= Constants::IntegerSize::UINT64_MAX
+               8
+             else
+               raise "Integer value out of range"
+             end
+
+      # Encode with determined size
+      case size
+      when 1
         encode_control_and_tag(type: Constants::Type::UNSIGNED_INTEGER, tag: tag, value_length: 1)
         byte_format.encode(UInt8.new(value), io)
-      elsif value <= Constants::IntegerSize::UINT16_MAX
+      when 2
         encode_control_and_tag(type: Constants::Type::UNSIGNED_INTEGER, tag: tag, value_length: 2)
         byte_format.encode(UInt16.new(value), io)
-      elsif value <= Constants::IntegerSize::UINT32_MAX
+      when 4
         encode_control_and_tag(type: Constants::Type::UNSIGNED_INTEGER, tag: tag, value_length: 4)
         byte_format.encode(UInt32.new(value), io)
-      elsif value <= Constants::IntegerSize::UINT64_MAX
+      when 8
         encode_control_and_tag(type: Constants::Type::UNSIGNED_INTEGER, tag: tag, value_length: 8)
         byte_format.encode(UInt64.new(value), io)
-      else
-        raise "Integer value out of range"
       end
     end
 
