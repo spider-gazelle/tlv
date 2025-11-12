@@ -63,15 +63,36 @@ module TLV
           if reader_object.keys.includes?("Any")
             root = reader_object["Any"].as(Hash(TLV::Tag, TLV::Value))
 
-            # Check both String and Tuple based keys
+            # Try multiple key variations to handle type mismatches
+            # Check string key (e.g., "1")
             if root.keys.includes?({{value[:tag]}}.to_s)
               %var{name} = root[{{value[:tag]}}.to_s]
               %found{name} = true
             end
 
-            if root.keys.includes?({{value[:tag]}})
+            # Check Int32 key (from annotation)
+            if !%found{name} && root.keys.includes?({{value[:tag]}})
               %var{name} = root[{{value[:tag]}}]
               %found{name} = true
+            end
+
+            # Check UInt8 key (TLV tag number) - only for simple integer tags
+            {% if value[:tag].is_a?(NumberLiteral) %}
+              if !%found{name} && root.keys.includes?({{value[:tag]}}.to_u8)
+                %var{name} = root[{{value[:tag]}}.to_u8]
+                %found{name} = true
+              end
+            {% end %}
+
+            # Last resort: try all integer variants
+            if !%found{name}
+              root.each do |k, v|
+                if k.responds_to?(:to_i) && k.to_i == {{value[:tag]}}
+                  %var{name} = v
+                  %found{name} = true
+                  break
+                end
+              end
             end
           end
         {% end %}
