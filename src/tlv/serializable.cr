@@ -2,6 +2,12 @@ module TLV
   annotation Field
   end
 
+  # Marks a struct/class as supporting list-form TLV encoding
+  # When this annotation is present, the deserializer will automatically detect
+  # and parse both list-form [val1, val2, val3] and structure-form {tag => val}
+  annotation ListForm
+  end
+
   module Serializable
     macro included
       # Define a `new` directly in the included type,
@@ -59,38 +65,79 @@ module TLV
           %found{name} = false
         {% end %}
 
-        {% for name, value in properties %}
+        # Check if this type supports list-form encoding
+        {% supports_list_form = @type.annotation(TLV::ListForm) %}
+
+        # Detect if the data is list-form or structure-form
+        {% if supports_list_form %}
           if reader_object.keys.includes?("Any")
-            root = reader_object["Any"].as(Hash(TLV::Tag, TLV::Value))
+            %any_value = reader_object["Any"]
 
-            # Try multiple key variations to handle type mismatches
-            # Check string key (e.g., "1")
-            if root.keys.includes?({{value[:tag]}}.to_s)
-              %var{name} = root[{{value[:tag]}}.to_s]
-              %found{name} = true
+            if %any_value.is_a?(Array)
+              # List-form: parse by array position
+              %list = %any_value.as(Array(TLV::Value))
+
+              # Sort properties by tag to get field order
+              {% sorted = properties.to_a.sort_by { |(n, v)| v[:tag].is_a?(NumberLiteral) ? v[:tag].id : 9999 } %}
+
+              # Assign values by position
+              {% pos = 0 %}
+              {% for prop in sorted %}
+                {% name = prop[0] %}
+                {% val = prop[1] %}
+                {% if val[:tag].is_a?(NumberLiteral) %}
+                  if %list.size > {{pos}}
+                    %var{name} = %list[{{pos}}]
+                    %found{name} = true
+                  end
+                  {% pos = pos + 1 %}
+                {% end %}
+              {% end %}
             end
+          end
+        {% end %}
 
-            # Check Int32 key (from annotation)
-            if !%found{name} && root.keys.includes?({{value[:tag]}})
-              %var{name} = root[{{value[:tag]}}]
-              %found{name} = true
-            end
+        # Structure-form parsing (original logic)
+        {% for name, value in properties %}
+          # Skip if already found via list-form
+          unless %found{name}
+            if reader_object.keys.includes?("Any")
+              %any_val = reader_object["Any"]
 
-            # Check UInt8 key (TLV tag number) - only for simple integer tags
-            {% if value[:tag].is_a?(NumberLiteral) %}
-              if !%found{name} && root.keys.includes?({{value[:tag]}}.to_u8)
-                %var{name} = root[{{value[:tag]}}.to_u8]
-                %found{name} = true
-              end
-            {% end %}
+              # Only parse as structure if it's a Hash
+              if %any_val.is_a?(Hash(TLV::Tag, TLV::Value))
+                root = %any_val.as(Hash(TLV::Tag, TLV::Value))
 
-            # Last resort: try all integer variants
-            if !%found{name}
-              root.each do |k, v|
-                if k.responds_to?(:to_i) && k.to_i == {{value[:tag]}}
-                  %var{name} = v
+                # Try multiple key variations to handle type mismatches
+                # Check string key (e.g., "1")
+                if root.keys.includes?({{value[:tag]}}.to_s)
+                  %var{name} = root[{{value[:tag]}}.to_s]
                   %found{name} = true
-                  break
+                end
+
+                # Check Int32 key (from annotation)
+                if !%found{name} && root.keys.includes?({{value[:tag]}})
+                  %var{name} = root[{{value[:tag]}}]
+                  %found{name} = true
+                end
+
+                # Check UInt8 key (TLV tag number) - only for simple integer tags
+                {% if value[:tag].is_a?(NumberLiteral) %}
+                  if !%found{name} && root.keys.includes?({{value[:tag]}}.to_u8)
+                    %var{name} = root[{{value[:tag]}}.to_u8]
+                    %found{name} = true
+                  end
+                {% end %}
+
+                # Last resort: try all integer variants
+                if !%found{name}
+                  root.each do |k, v|
+                    if k.responds_to?(:to_i) && k.to_i == {{value[:tag]}}
+                      %var{name} = v
+                      %found{name} = true
+                      break
+                    end
+                  end
                 end
               end
             end
