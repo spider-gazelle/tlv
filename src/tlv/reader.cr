@@ -129,10 +129,11 @@ module TLV
 
         decode_data(decoding["Array"].as(Array(Value)), decoding["value"].as(Array(Value)))
       elsif decoding["type"] == "Path"
-        decoding["value"] = [] of Value
+        path_elements = [] of Value
         decoding["Path"] = [] of Value
+        decoding["value"] = PathContainer.new(path_elements)
 
-        decode_data(decoding["Path"].as(Array(Value)), decoding["value"].as(Array(Value)))
+        decode_data(decoding["Path"].as(Array(Value)), path_elements)
       elsif decoding["type"] == "Null"
         decoding["value"] = nil
       elsif decoding["type"] == "End of Collection"

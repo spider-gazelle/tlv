@@ -36,6 +36,8 @@ module TLV
         put_slice(tag, value.as(Slice(UInt8)))
       when .is_a?(Hash(Tag, Value))
         put_hash(tag, value.as(Hash(Tag, Value)))
+      when .is_a?(PathContainer)
+        put_path(tag, value.as(PathContainer))
       when .is_a?(Array(Value))
         put_array(tag, value.as(Array(Value)))
       when .is_a?(Enum)
@@ -227,6 +229,16 @@ module TLV
       start_array(tag)
 
       values.each do |value|
+        self.put(nil, value)
+      end
+
+      end_container()
+    end
+
+    def put_path(tag : Tag, path : PathContainer)
+      start_path(tag)
+
+      path.each do |value|
         self.put(nil, value)
       end
 
