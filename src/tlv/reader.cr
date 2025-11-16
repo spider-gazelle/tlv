@@ -129,7 +129,7 @@ module TLV
 
         decode_data(decoding["Array"].as(Array(Value)), decoding["value"].as(Array(Value)))
       elsif decoding["type"] == "Path"
-        path_elements = [] of Value
+        path_elements = {} of Tag => Value
         decoding["Path"] = [] of Value
         decoding["value"] = PathContainer.new(path_elements)
 

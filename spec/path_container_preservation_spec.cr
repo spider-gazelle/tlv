@@ -24,7 +24,14 @@ describe "PATH Container Type Preservation" do
 
     puts "\n=== Decoded PATH value ==="
     puts "Type: #{path_value.class}"
-    puts "Value: #{path_value.inspect[0, 80]}"
+    puts "Value: #{path_value.inspect[0, 120]}"
+
+    # Verify it's a PathContainer
+    path_value.should be_a(TLV::PathContainer)
+    path_container = path_value.as(TLV::PathContainer)
+    path_container[2_u8].should eq(0_u16)  # endpoint
+    path_container[3_u8].should eq(40_u32) # cluster
+    path_container[4_u8].should eq(9_u32)  # attribute
 
     # Now put it in a structure and re-encode
     structure = {

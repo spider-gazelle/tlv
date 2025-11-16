@@ -1,27 +1,36 @@
 module TLV
-  # PathContainer is a wrapper around an array that preserves the PATH container type
-  # during encode/decode cycles. This is necessary because PATH (0x17) and ARRAY (0x16)
-  # containers have different semantics in the Matter protocol, but both decode to arrays.
+  # PathContainer is a wrapper around a hash that preserves the PATH container type
+  # during encode/decode cycles. This is necessary because PATH (0x17) and STRUCTURE (0x15)
+  # containers have different semantics in the Matter protocol, but both decode to hashes.
+  # PATH containers contain tagged elements (endpoint, cluster, attribute) like structures.
   class PathContainer
-    getter elements : Array(Value)
+    getter elements : Hash(Tag, Value)
 
-    def initialize(@elements : Array(Value) = [] of Value)
+    def initialize(@elements : Hash(Tag, Value) = {} of Tag => Value)
     end
 
-    def <<(value : Value)
-      @elements << value
+    def []=(key : Tag, value : Value)
+      @elements[key] = value
     end
 
-    def push(value : Value)
-      @elements.push(value)
+    def [](key : Tag)
+      @elements[key]
     end
 
-    def [](index : Int)
-      @elements[index]
+    def []?(key : Tag)
+      @elements[key]?
     end
 
-    def []=(index : Int, value : Value)
-      @elements[index] = value
+    def has_key?(key : Tag)
+      @elements.has_key?(key)
+    end
+
+    def keys
+      @elements.keys
+    end
+
+    def values
+      @elements.values
     end
 
     def size
@@ -33,8 +42,8 @@ module TLV
     end
 
     def each(&)
-      @elements.each do |element|
-        yield element
+      @elements.each do |key, value|
+        yield key, value
       end
     end
 
@@ -42,7 +51,7 @@ module TLV
       @elements.map(&block)
     end
 
-    def to_a
+    def to_h
       @elements
     end
 
@@ -50,7 +59,7 @@ module TLV
       @elements == other.elements
     end
 
-    def ==(other : Array(Value))
+    def ==(other : Hash(Tag, Value))
       @elements == other
     end
 

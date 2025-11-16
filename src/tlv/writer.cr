@@ -238,8 +238,15 @@ module TLV
     def put_path(tag : Tag, path : PathContainer)
       start_path(tag)
 
-      path.each do |value|
-        self.put(nil, value)
+      # Sort keys like we do for structures to ensure consistent encoding
+      structure = {} of BigInt => Tuple(Tag, Value)
+      path.elements.keys.each do |key|
+        structure.merge!({tag_to_sort_key(key) => {key, path.elements[key]}})
+      end
+
+      structure.keys.sort.each do |key|
+        value = structure[key]
+        put(value.first, value.last)
       end
 
       end_container()
