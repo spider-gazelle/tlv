@@ -45,6 +45,22 @@ module TLV
       end
     end
 
+    # Overload for Array(Hash(Tag, Value)) which doesn't match Array(Value) in Crystal's type system
+    def put(tag : Tag, value : Array(Hash(Tag, Value)))
+      put_array_of_hashes(tag, value)
+    end
+
+    # Encode an array of hashes (common pattern for TLV lists of structs)
+    def put_array_of_hashes(tag : Tag, values : Array(Hash(Tag, Value)))
+      start_array(tag)
+
+      values.each do |hash|
+        put_hash(nil, hash)
+      end
+
+      end_container()
+    end
+
     def put_null(tag : Tag)
       # Write a TLV null with the specified TLV tag.
       encode_control_and_tag(type: Constants::Type::NULL, tag: tag)
@@ -279,6 +295,26 @@ module TLV
       # End writing the current TLV container.
       stack.delete_at(0, 1)
       encode_control_and_tag(type: Constants::Generic::END_OF_CONTAINER, tag: nil)
+    end
+
+    # Write pre-encoded TLV bytes with a new tag.
+    # The element_bytes must be complete TLV starting with an anonymous element's control byte.
+    # This method replaces the anonymous tag with the specified tag.
+    # Useful for embedding cluster-encoded data that needs to preserve exact integer widths.
+    def put_raw_element(tag : Tag, element_bytes : Bytes)
+      return if element_bytes.empty?
+
+      # The original bytes start with control byte for an anonymous element
+      # Control byte format: [element_type(5 bits) | tag_form(3 bits)]
+      # For anonymous: tag_form = 0x00
+      original_control = element_bytes[0]
+      element_type = original_control & 0x1f
+
+      # Write new control byte and tag using our standard method
+      encode_control_and_tag(type: element_type, tag: tag)
+
+      # Write the rest of the bytes (skip the original anonymous control byte)
+      io.write(element_bytes[1..])
     end
 
     private def tag_to_sort_key(tag : Tag) : BigInt
